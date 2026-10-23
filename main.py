@@ -12,7 +12,7 @@ OUT.mkdir(exist_ok=True)
 ASSETS.mkdir(exist_ok=True)
 
 API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
 UPLOAD = os.environ.get("YOUTUBE_UPLOAD", "false").lower() == "true"
 
 def call_gemini():
