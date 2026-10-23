@@ -1,4 +1,4 @@
-import os, json, re, subprocess, textwrap, shutil, base64
+import os, json, re, subprocess, textwrap, shutil, base64, time
 from pathlib import Path
 from datetime import datetime, timezone
 import requests
@@ -37,12 +37,47 @@ Return ONLY valid JSON with this exact schema:
 }
 Use 4 to 6 scenes. Each voice segment should sound natural when read aloud. No markdown fences.
 """
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={API_KEY}"
-    r = requests.post(url, json={"contents":[{"parts":[{"text":prompt}]}],
-                                 "generationConfig":{"temperature":0.8,"responseMimeType":"application/json"}}, timeout=90)
-    if not r.ok:
-        raise RuntimeError(f"Gemini API error {r.status_code}: {r.text[:1000]}")
-    data = r.json()
+    
+url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={API_KEY}"
+
+payload = {
+    "contents": [{"parts": [{"text": prompt}]}],
+    "generationConfig": {
+        "temperature": 0.8,
+        "responseMimeType": "application/json"
+    }
+}
+
+for attempt in range(5):
+    try:
+        r = requests.post(url, json=payload, timeout=90)
+        if r.ok:
+            break
+
+        if r.status_code not in (408, 429, 500, 502, 503, 504):
+            raise RuntimeError(
+                f"Gemini API error {r.status_code}: {r.text[:1000]}"
+            )
+
+        if attempt == 4:
+            raise RuntimeError(
+                f"Gemini failed after 5 attempts: "
+                f"{r.status_code}: {r.text[:1000]}"
+            )
+
+        delay = min(2 ** (attempt + 1), 30)
+        print(f"Gemini returned {r.status_code}; retrying in {delay}s...")
+        time.sleep(delay)
+
+    except requests.exceptions.RequestException as e:
+        if attempt == 4:
+            raise RuntimeError(f"Gemini request failed after 5 attempts: {e}")
+        delay = min(2 ** (attempt + 1), 30)
+        print(f"Network error: {e}; retrying in {delay}s...")
+        time.sleep(delay)
+
+data = r.json()
+
     raw = data["candidates"][0]["content"]["parts"][0]["text"]
     raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip(), flags=re.I)
     content = json.loads(raw)
