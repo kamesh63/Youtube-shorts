@@ -1,0 +1,46 @@
+
+name: Daily YouTube Short
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 3 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  create-short:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate YouTube Short
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: gemini-2.5-flash
+          YOUTUBE_UPLOAD: "false"
+        run: python main.py
+
+      - name: Save generated video
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-short
+          path: output/
+          if-no-files-found: warn
+          retention-days: 7
